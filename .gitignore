@@ -7,10 +7,12 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+venv/
 
 # Configuration files with secrets
 config_local.py
+config.py
 .env
 
 # AWS credentials
@@ -20,9 +22,22 @@ config_local.py
 logs/
 *.log
 execution_logs/
+*.log.*
 
 # Generated todo files
 todo.json
+todo.md
 
-# Config files
-config.py
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
