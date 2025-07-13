@@ -88,25 +88,45 @@ class InteractiveAgent:
 
 def main():
     """Main entry point"""
-    try:
-        # 检查基本配置
-        from config import get_bedrock_config
-        get_bedrock_config()  # Verify config is loadable
+    # 检查是否有命令行参数
+    if len(sys.argv) > 1:
+        # 简单模式：python main.py "用户输入"
+        user_request = " ".join(sys.argv[1:])
+        print(f"🚀 处理请求: {user_request}")
+        print("=" * 60)
         
-        # 创建交互式系统
-        interactive_agent = InteractiveAgent()
-        
-        # 运行交互模式
-        interactive_agent.run_interactive_mode()
-        
-    except ImportError as e:
-        print(f"❌ 配置错误: {str(e)}")
-        print("💡 请检查config.py文件")
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ 系统启动失败: {str(e)}")
-        print("💡 请检查依赖安装和AWS配置")
-        sys.exit(1)
+        try:
+            # 直接执行workflow
+            result = run_workflow(user_request)
+            print(f"\n✅ 执行完成，状态: {result.get('status', 'unknown')}")
+            
+        except Exception as e:
+            print(f"\n❌ 执行失败: {str(e)}")
+            import traceback
+            print("\n🔍 详细错误信息:")
+            traceback.print_exc()
+            sys.exit(1)
+    else:
+        # 交互模式
+        try:
+            # 检查基本配置
+            from config import get_bedrock_config
+            get_bedrock_config()  # Verify config is loadable
+            
+            # 创建交互式系统
+            interactive_agent = InteractiveAgent()
+            
+            # 运行交互模式
+            interactive_agent.run_interactive_mode()
+            
+        except ImportError as e:
+            print(f"❌ 配置错误: {str(e)}")
+            print("💡 请检查config.py文件")
+            sys.exit(1)
+        except Exception as e:
+            print(f"❌ 系统启动失败: {str(e)}")
+            print("💡 请检查依赖安装和AWS配置")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

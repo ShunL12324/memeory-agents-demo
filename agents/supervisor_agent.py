@@ -1,15 +1,17 @@
 """Supervisor agent for coordinating and monitoring other agents."""
 
-from typing import Dict, Any
+import json
+from typing import Dict, Any, List
 
 import logger
 from tools import file_tools
-from models import SubWorkflowStatus
+from models import SupervisorWorkflowStatus
 from .base_agent import BaseAgent
 from prompts.supervisor_prompts import SUPERVISOR_SYSTEM_PROMPT
-from models import SupervisorSubGraphState
+from models import SupervisorWorkflowState
 from datetime import datetime
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage, SystemMessage, AnyMessage
+from langgraph.prebuilt import create_react_agent
 
 
 class SupervisorAgent(BaseAgent):
@@ -23,33 +25,37 @@ class SupervisorAgent(BaseAgent):
         """Register an agent with the supervisor"""
         self.agents[agent.name] = agent
 
-    def execute(self, state: SupervisorSubGraphState) -> SupervisorSubGraphState:
+    def execute(self, state: SupervisorWorkflowState) -> SupervisorWorkflowState:
         """Execute supervision logic and return updated state"""
-        logger.get_logger()._write_log("INFO", "supervisor_agent", f"Execute the supervisor agent")
-        history_messages = state.get("messages", [])
-        logger.get_logger()._write_log("INFO", "supervisor_agent", f"History messages: {history_messages[1:]}")
-        supervisor_system = AIMessage(
-            content=SUPERVISOR_SYSTEM_PROMPT.format(messages_context=history_messages),
-            role="supervisor",
-            agent="supervisor",
-            timestamp=datetime.now().isoformat()
+        logger.get_logger()._write_log(
+            "INFO", "supervisor_agent", f"Execute the supervisor agent"
         )
-        messages = [supervisor_system] + [history_messages[0]]
+        history_messages = state.get("messages", [])
+        logger.get_logger()._write_log(
+            "INFO",
+            "supervisor_agent",
+            f"History messages length: {len(history_messages)}",
+        )
 
-        logger.get_logger()._write_log("INFO", "supervisor_agent", f"Messages: {messages}")
+        current_plan = history_messages[0].content
 
-        response = self._call_llm(messages)
+        self.react_agent = create_react_agent(
+            model=self.llm,
+            prompt=SUPERVISOR_SYSTEM_PROMPT.format(current_plan=current_plan),
+            tools=file_tools,
+        )
 
-        logger.get_logger()._write_log("INFO", "supervisor_agent", f"Response: {response}")
+        # list of messages
+        response: List[AnyMessage] = self.react_agent.invoke(
+            {"messages": history_messages}
+        )
 
-        if response.tool_calls and len(response.tool_calls) > 0 :
-            return SupervisorSubGraphState(
-                status=SubWorkflowStatus.TOOL_CALLING,
-                messages=[response]
+        for msg in response["messages"]:
+            logger.get_logger()._write_log(
+                "INFO", "supervisor_agent", "\n" + msg.pretty_repr()
             )
-        else:
-            return SupervisorSubGraphState(
-                status=SubWorkflowStatus.TASK_PROCESSING,
-                messages=[response]
-            )
 
+        return SupervisorWorkflowState(
+            status=SupervisorWorkflowStatus.TASK_PROCESSING,
+            messages=response["messages"],
+        )

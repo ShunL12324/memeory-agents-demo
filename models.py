@@ -15,16 +15,15 @@ class MainWorkflowStatus(Enum):
     ERROR = "error"
 
 
-class SubWorkflowStatus(Enum):
+class SupervisorWorkflowStatus(Enum):
     """Status values for the supervisor subgraph (SupervisorSubGraphState)"""
     PROCESSING = "processing"
-    TOOL_CALLING = "tool_calling"
     TASK_PROCESSING = "task_processing"
     TASK_COMPLETED = "task_completed"
     COMPLETED = "completed"
     ERROR = "error"
 
-class AgentState(TypedDict):
+class MainWorkflowState(TypedDict):
     """State shared between agents - minimal structure"""
     origin_user_request: str
     plan_list: List[Dict[str, Any]]
@@ -32,8 +31,8 @@ class AgentState(TypedDict):
     status: MainWorkflowStatus
     messages: Annotated[List[AnyMessage], operator.add]  # Unified message storage with reducer
 
-class SupervisorSubGraphState(TypedDict):
+class SupervisorWorkflowState(TypedDict):
     """State shared between agents - minimal structure"""
     origin_user_request: str
-    status: SubWorkflowStatus
+    status: SupervisorWorkflowStatus
     messages: Annotated[List[AnyMessage], operator.add]

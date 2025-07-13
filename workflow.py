@@ -5,13 +5,14 @@ from agents import PlannerAgent, SupervisorAgent, RoleCreatorAgent
 import logger
 from models import (
     MainWorkflowStatus,
-    SubWorkflowStatus,
-    AgentState,
-    SupervisorSubGraphState,
+    SupervisorWorkflowStatus,
+    MainWorkflowState,
+    SupervisorWorkflowState,
 )
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from datetime import datetime
 from tools import all_tools
+
 
 # Supervisor subgraph
 class SupervisorAgentWorkflow:
@@ -27,63 +28,34 @@ class SupervisorAgentWorkflow:
     def _create_workflow(self) -> StateGraph:
         """Create the LangGraph workflow"""
 
-        def supervisor_node(state: SupervisorSubGraphState) -> SupervisorSubGraphState:
+        def supervisor_node(state: SupervisorWorkflowState) -> SupervisorWorkflowState:
             return self.supervisor.execute(state)
 
-        def supervisor_tool_node(
-            state: SupervisorSubGraphState,
-        ) -> SupervisorSubGraphState:
-            tools_by_name = {tool.name: tool for tool in all_tools}
-            messages = state.get("messages", [])
-            if len(messages) == 0:
-                return state
-            else:
-                message = messages[-1]
-                if not message.tool_calls or len(message.tool_calls) == 0:
-                    return state
-                else:
-                    tool_call = message.tool_calls[0]
-                    tool_result = tools_by_name[tool_call.get("name", "")].invoke(tool_call.get("args", {}))
-                    tool_msg = ToolMessage(
-                        content=json.dumps(tool_result, indent=4),
-                        role="supervisor",
-                        agent="supervisor",
-                        tool_call_id=tool_call.get("id", ""),   
-                        tool_name=tool_call.get("name", ""),
-                        timestamp=datetime.now().isoformat(),
-                    )
-                    return SupervisorSubGraphState(
-                        status=SubWorkflowStatus.PROCESSING,
-                        messages=[tool_msg],
-                    )
-
         def role_creator_node(
-            state: SupervisorSubGraphState,
-        ) -> SupervisorSubGraphState:
+            state: SupervisorWorkflowState,
+        ) -> SupervisorWorkflowState:
             return self.role_creator.execute(state)
 
-        def routing_logic(state: SupervisorSubGraphState) -> str:
+        def routing_logic(state: SupervisorWorkflowState) -> str:
             status = state.get("status", "")
 
-            if status == SubWorkflowStatus.PROCESSING:
+            if status == SupervisorWorkflowStatus.PROCESSING:
                 return "supervisor"
-            elif status == SubWorkflowStatus.TOOL_CALLING:
-                return "supervisor_tool"
-            elif status == SubWorkflowStatus.TASK_PROCESSING:
+            elif status == SupervisorWorkflowStatus.TASK_PROCESSING:
                 return "role_creator"
-            elif status == SubWorkflowStatus.TASK_COMPLETED:
+            elif status == SupervisorWorkflowStatus.TASK_COMPLETED:
                 return "supervisor"
-            elif status == SubWorkflowStatus.ERROR:
+            elif status == SupervisorWorkflowStatus.ERROR:
                 return "supervisor"
-            elif status == SubWorkflowStatus.COMPLETED:
+            elif status == SupervisorWorkflowStatus.COMPLETED:
                 return END
 
         # Build the workflow graph
-        workflow = StateGraph(SupervisorSubGraphState)
+        workflow = StateGraph(SupervisorWorkflowState)
 
         # Add nodes
         workflow.add_node("supervisor", supervisor_node)
-        workflow.add_node("supervisor_tool", supervisor_tool_node)  # for ReAct agent
+        # workflow.add_node("supervisor_tool", supervisor_tool_node)  # for ReAct agent
         workflow.add_node("role_creator", role_creator_node)
 
         # Set entry point
@@ -95,14 +67,14 @@ class SupervisorAgentWorkflow:
             routing_logic,
             {
                 "supervisor": "supervisor",
-                "supervisor_tool": "supervisor_tool",
+                # "supervisor_tool": "supervisor_tool",
                 "role_creator": "role_creator",
                 END: END,
             },
         )
 
         # supervisor_tool always returns to supervisor (ReAct pattern)
-        workflow.add_edge("supervisor_tool", "supervisor")
+        # workflow.add_edge("supervisor_tool", "supervisor")
 
         workflow.add_conditional_edges(
             "role_creator", routing_logic, {"supervisor": "supervisor", END: END}
@@ -110,12 +82,12 @@ class SupervisorAgentWorkflow:
 
         return workflow.compile()
 
-    def execute(self, state: AgentState) -> AgentState:
+    def execute(self, state: MainWorkflowState) -> MainWorkflowState:
         """Execute the supervisor subgraph"""
         # Convert AgentState to SupervisorSubGraphState
         plan_list = state.get("plan_list", [])
         if not plan_list or len(plan_list) == 0:
-            return AgentState(
+            return MainWorkflowState(
                 origin_user_request=state.get("origin_user_request", ""),
                 plan_list=state.get("plan_list", []),
                 current_plan_index=state.get("current_plan_index", 0),
@@ -128,7 +100,7 @@ class SupervisorAgentWorkflow:
             "INFO", "supervisor_subgraph", f"Start to handle plan: {plan}"
         )
         planner_message = HumanMessage(
-            content=f"The current plan is: {plan}",
+            content=f"{plan}",
             role="planner",
             agent="planner",
             timestamp=datetime.now().isoformat(),
@@ -137,9 +109,9 @@ class SupervisorAgentWorkflow:
             "INFO", "supervisor_subgraph", f"Planner message: {planner_message}"
         )
 
-        supervisor_subgraph_state = SupervisorSubGraphState(
+        supervisor_subgraph_state = SupervisorWorkflowState(
             origin_user_request=state.get("origin_user_request", ""),
-            status=SubWorkflowStatus.PROCESSING,
+            status=SupervisorWorkflowStatus.PROCESSING,
             messages=[planner_message],
         )
 
@@ -150,11 +122,11 @@ class SupervisorAgentWorkflow:
         # if state is workflow_completed
         # update the main workflow status completed
         subgraph_status = subgraph_state.get("status", "")
-        if subgraph_status == SubWorkflowStatus.ERROR:
+        if subgraph_status == SupervisorWorkflowStatus.ERROR:
             logger.get_logger()._write_log(
                 "ERROR", "supervisor_agent", f"Error in supervisor subgraph"
             )
-            return AgentState(
+            return MainWorkflowState(
                 origin_user_request=state.get("origin_user_request", ""),
                 plan_list=state.get("plan_list", []),
                 current_plan_index=state.get("current_plan_index", 0),
@@ -169,7 +141,7 @@ class SupervisorAgentWorkflow:
             )
             next_plan_index = state.get("current_plan_index", 0) + 1
             if next_plan_index >= len(state.get("plan_list", [])):
-                return AgentState(
+                return MainWorkflowState(
                     origin_user_request=state.get("origin_user_request", ""),
                     plan_list=state.get("plan_list", []),
                     current_plan_index=state.get(
@@ -186,7 +158,7 @@ class SupervisorAgentWorkflow:
                     ],
                 )
             else:
-                return AgentState(
+                return MainWorkflowState(
                     origin_user_request=state.get("origin_user_request", ""),
                     plan_list=state.get("plan_list", []),
                     current_plan_index=next_plan_index,
@@ -215,20 +187,20 @@ class MultiAgentWorkflow:
     def _create_workflow(self) -> StateGraph:
         """Create the LangGraph workflow"""
 
-        def planning_node(state: AgentState) -> AgentState:
+        def planning_node(state: MainWorkflowState) -> MainWorkflowState:
             """Planning node - creates high-level phases
             we will update the state with the planning results
             and then pass it to the supervisor subgraph"""
             return self.planner.execute(state)
 
-        def supervisor_subgraph_node(state: AgentState) -> AgentState:
+        def supervisor_subgraph_node(state: MainWorkflowState) -> MainWorkflowState:
             """Supervision node - manages phases and coordinates execution"""
             logger.get_logger()._write_log(
                 "INFO", "supervisor_agent", f"Execute the supervisor subgraph"
             )
             return self.supervisor_subgraph.execute(state)
 
-        def routing_logic(state: AgentState) -> str:
+        def routing_logic(state: MainWorkflowState) -> str:
             """Determine next node based on current state"""
             status = state.get("status", "")
 
@@ -244,7 +216,7 @@ class MultiAgentWorkflow:
                 return END
 
         # Build the workflow graph
-        workflow = StateGraph(AgentState)
+        workflow = StateGraph(MainWorkflowState)
 
         # Add nodes
         workflow.add_node("planning", planning_node)
@@ -276,7 +248,7 @@ class MultiAgentWorkflow:
 
         return workflow.compile()
 
-    def execute(self, state: AgentState) -> AgentState:
+    def execute(self, state: MainWorkflowState) -> MainWorkflowState:
         """Execute the multi-agent workflow"""
         return self.workflow.invoke(state)
 
@@ -286,7 +258,7 @@ def run_workflow(user_request: str) -> Dict[str, Any]:
     workflow = MultiAgentWorkflow()
 
     # Create initial state
-    initial_state = AgentState(
+    initial_state = MainWorkflowState(
         origin_user_request=user_request,
         plan_list=[],
         current_plan_index=0,
