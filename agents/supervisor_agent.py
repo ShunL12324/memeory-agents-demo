@@ -1,17 +1,19 @@
 """Supervisor agent for coordinating and monitoring other agents."""
 
 import json
-from typing import Dict, Any, List
+from datetime import datetime
+import os
+from typing import Any, Dict, List
+
+from langchain_core.messages import AIMessage, AnyMessage, SystemMessage, ToolMessage
+from langgraph.prebuilt import create_react_agent
 
 import logger
-from tools import file_tools
-from models import SupervisorWorkflowStatus
-from .base_agent import BaseAgent
+from models import SupervisorWorkflowState, SupervisorWorkflowStatus
 from prompts.supervisor_prompts import SUPERVISOR_SYSTEM_PROMPT
-from models import SupervisorWorkflowState
-from datetime import datetime
-from langchain_core.messages import AIMessage, ToolMessage, SystemMessage, AnyMessage
-from langgraph.prebuilt import create_react_agent
+from tools import file_tools
+
+from .base_agent import BaseAgent
 
 
 class SupervisorAgent(BaseAgent):
@@ -53,6 +55,51 @@ class SupervisorAgent(BaseAgent):
         for msg in response["messages"]:
             logger.get_logger()._write_log(
                 "INFO", "supervisor_agent", "\n" + msg.pretty_repr()
+            )
+
+        # check if all tasks are completed
+        plan_phase_id = state.get("phase_id", "")
+        if not plan_phase_id or os.path.exists("todo.json") is False:
+            logger.get_logger()._write_log(
+                "ERROR",
+                "supervisor_agent",
+                "No phase_id found in state, cannot proceed with task processing.",
+            )
+            return SupervisorWorkflowState(
+                status=SupervisorWorkflowStatus.ERROR,
+                messages=[AIMessage(content="No phase_id found in state.")],
+            )
+
+        todo_file_content = ""
+        with open("todo.json", "r") as f:
+            todo_file_content = f.read()
+        todo_data = json.loads(todo_file_content)
+        current_phase = next(
+            (phase for phase in todo_data if phase["phase_id"] == plan_phase_id), None
+        )
+        if not current_phase:
+            logger.get_logger()._write_log(
+                "ERROR",
+                "supervisor_agent",
+                f"Phase {plan_phase_id} not found in todo.json",
+            )
+            return SupervisorWorkflowState(
+                status=SupervisorWorkflowStatus.ERROR,
+                messages=[
+                    AIMessage(content=f"Phase {plan_phase_id} not found in todo.json")
+                ],
+            )
+        if current_phase["status"] == "completed":
+            logger.get_logger()._write_log(
+                "INFO",
+                "supervisor_agent",
+                f"Phase {plan_phase_id} already completed, updating status",
+            )
+            return SupervisorWorkflowState(
+                status=SupervisorWorkflowStatus.COMPLETED,
+                messages=[
+                    AIMessage(content=f"Phase {plan_phase_id} is already completed.")
+                ],
             )
 
         return SupervisorWorkflowState(

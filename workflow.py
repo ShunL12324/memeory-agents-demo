@@ -96,11 +96,12 @@ class SupervisorAgentWorkflow:
             )
 
         plan = plan_list[state.get("current_plan_index", 0)]
+        phase_id = plan.get("phase_id", "")
         logger.get_logger()._write_log(
             "INFO", "supervisor_subgraph", f"Start to handle plan: {plan}"
         )
         planner_message = HumanMessage(
-            content=f"{plan}",
+            content=f"{json.dumps(plan, indent=4, ensure_ascii=False)}",
             role="planner",
             agent="planner",
             timestamp=datetime.now().isoformat(),
@@ -112,6 +113,7 @@ class SupervisorAgentWorkflow:
         supervisor_subgraph_state = SupervisorWorkflowState(
             origin_user_request=state.get("origin_user_request", ""),
             status=SupervisorWorkflowStatus.PROCESSING,
+            phase_id=phase_id,
             messages=[planner_message],
         )
 

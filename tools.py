@@ -27,7 +27,7 @@ class ListFilesInput(BaseModel):
     """Input schema for listing files in a directory."""
     path: str = Field(description="Path to the directory to list files from")
     depth: int = Field(default=1, description="Maximum depth to traverse (1 = current directory only, 2 = include subdirectories, etc.)")
-
+    
 
 @tool(
     "read_file",
@@ -139,7 +139,7 @@ def list_files(path: str, depth: int = 1) -> str:
         return f"Files in {path} (depth={depth}):\n" + "\n".join(files_info)
         
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: {str(e)}"   
 
 
 # Export tools for easy import

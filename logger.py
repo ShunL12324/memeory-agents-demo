@@ -17,7 +17,9 @@ class WorkflowLogger:
 
         # Create log files with timestamp
         self.log_file = self.logs_dir / f"workflow_{self.session_id}.log"
-        self.md_log_file = self.logs_dir / f"workflow_{self.session_id}.md"
+        
+        # Clean up old log files, keep only 3 most recent
+        self._cleanup_old_logs()
 
         # Initialize log data
         self.log_data = {
@@ -30,9 +32,6 @@ class WorkflowLogger:
             "final_status": None,
         }
 
-        # Initialize markdown log
-        self._init_markdown_log()
-
         # Write initial log entry
         self._write_log(
             "INFO",
@@ -41,7 +40,6 @@ class WorkflowLogger:
             {
                 "session_id": self.session_id,
                 "log_file": str(self.log_file),
-                "md_log_file": str(self.md_log_file),
             },
         )
 
@@ -79,8 +77,18 @@ class WorkflowLogger:
         else:
             self.log_data["workflow_steps"].append(json_entry)
 
-        # Write to markdown log
-        self._write_markdown_entry(timestamp, level, component, message, data)
+    def _cleanup_old_logs(self):
+        """Keep only the 3 most recent log files"""
+        log_files = list(self.logs_dir.glob("workflow_*.log"))
+        if len(log_files) > 3:
+            # Sort by modification time, newest first
+            log_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+            # Remove old files beyond the 3 most recent
+            for old_file in log_files[3:]:
+                try:
+                    old_file.unlink()
+                except OSError:
+                    pass  # Ignore errors if file can't be deleted
 
     def _init_markdown_log(self):
         """Initialize the readable log file"""

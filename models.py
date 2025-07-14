@@ -33,6 +33,7 @@ class MainWorkflowState(TypedDict):
 
 class SupervisorWorkflowState(TypedDict):
     """State shared between agents - minimal structure"""
+    phase_id: str
     origin_user_request: str
     status: SupervisorWorkflowStatus
     messages: Annotated[List[AnyMessage], operator.add]
