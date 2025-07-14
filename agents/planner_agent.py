@@ -8,8 +8,6 @@ from .base_agent import BaseAgent
 from prompts.planner_prompts import PLANNER_SYSTEM_PROMPT, PLANNER_USER_PROMPT
 from utils import extract_and_validate_json, JSONExtractionError
 from models import MainWorkflowStatus, MainWorkflowState
-import json
-from datetime import datetime
 
 
 class PlannerAgent(BaseAgent):
@@ -24,7 +22,7 @@ class PlannerAgent(BaseAgent):
         logger.get_logger()._write_log(
             "INFO",
             "planner_agent",
-            f"Planning phases for user request: {state['origin_user_request']}",
+            f"开始制定计划: {state['origin_user_request']}",
         )
 
         messages = [
@@ -39,11 +37,6 @@ class PlannerAgent(BaseAgent):
         response = self._call_llm(messages)
 
         try:
-
-            logger.get_logger()._write_log(
-                "INFO", "planner_agent", f"{response.pretty_repr()}"
-            )
-
             phases = extract_and_validate_json(
                 self._extract_text_content(response),
                 expected_type=list,
@@ -51,7 +44,9 @@ class PlannerAgent(BaseAgent):
             )
 
             logger.get_logger()._write_log(
-                "INFO", "planner_agent", f"Planned phases: {phases}"
+                "INFO",
+                "planner_agent",
+                f"制定了 {len(phases)} 个阶段的计划",
             )
 
             # Return updated state matching AgentState structure
@@ -65,7 +60,7 @@ class PlannerAgent(BaseAgent):
 
         except Exception as e:
             logger.get_logger()._write_log(
-                "ERROR", "planner_agent", f"Planning failed: {str(e)}"
+                "ERROR", "planner_agent", f"计划制定失败: {str(e)}"
             )
             return {
                 "origin_user_request": state["origin_user_request"],

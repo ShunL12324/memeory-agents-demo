@@ -1,15 +1,17 @@
 """Role creator agent for generating character assets."""
 
-from typing import Dict, Any, List, TypedDict
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from datetime import datetime
+from typing import Any, Dict, List, TypedDict
+
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 import logger
-from .base_agent import BaseAgent
-from prompts.role_creator_prompts import ROLE_CREATOR_SYSTEM_PROMPT
-from utils import extract_and_validate_json, JSONExtractionError
-from datetime import datetime
 from models import SupervisorWorkflowState, SupervisorWorkflowStatus
+from prompts.role_creator_prompts import ROLE_CREATOR_SYSTEM_PROMPT
 from tools import file_tools
+from utils import JSONExtractionError, extract_and_validate_json
+
+from .base_agent import BaseAgent
 
 
 class RoleCreatorAgent(BaseAgent):
@@ -19,9 +21,7 @@ class RoleCreatorAgent(BaseAgent):
         super().__init__("role_creator")
 
     def execute(self, state: SupervisorWorkflowState) -> SupervisorWorkflowState:
-        logger.get_logger()._write_log(
-            "INFO", "role_creator", "Start role creator work"
-        )
+        logger.get_logger()._write_log("INFO", "role_creator", "开始角色创建工作")
 
         history_messages = state.get("messages", [])
         if len(history_messages) == 0:
@@ -39,10 +39,12 @@ class RoleCreatorAgent(BaseAgent):
         logger.get_logger()._write_log(
             "INFO",
             "role_creator",
-            "[THINKING]\n" + self._extract_reasoning_content(response),
+            "[思考过程]\n" + self._extract_reasoning_content(response),
         )
         logger.get_logger()._write_log(
-            "INFO", "role_creator", "[CONTENT]\n" + self._extract_text_content(response)
+            "INFO",
+            "role_creator",
+            "[输出内容]\n" + self._extract_text_content(response),
         )
 
         return SupervisorWorkflowState(

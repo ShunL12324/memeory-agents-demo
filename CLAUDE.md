@@ -114,8 +114,8 @@ File operations use simple Python functions to avoid LangChain complexity:
 def simple_read_file(file_path: str) -> str:
     # Direct file operations without LangChain dependencies
 
-# Used by SupervisorAgent for todo.json management
-supervisor.manage_todo_file(tasks)  # Creates/updates todo.json
+# Used by SupervisorAgent for todo.md management
+supervisor.manage_todo_file(tasks)  # Creates/updates todo.md
 ```
 
 ## Quick Start

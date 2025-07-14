@@ -58,6 +58,9 @@ class WorkflowLogger:
         with open(self.log_file, "a", encoding="utf-8") as f:
             f.write(log_entry + "\n")
 
+        # Print to console
+        print(log_entry)
+
         # Add to JSON log data
         json_entry = {
             "timestamp": timestamp,

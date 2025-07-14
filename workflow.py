@@ -67,14 +67,10 @@ class SupervisorAgentWorkflow:
             routing_logic,
             {
                 "supervisor": "supervisor",
-                # "supervisor_tool": "supervisor_tool",
                 "role_creator": "role_creator",
                 END: END,
             },
         )
-
-        # supervisor_tool always returns to supervisor (ReAct pattern)
-        # workflow.add_edge("supervisor_tool", "supervisor")
 
         workflow.add_conditional_edges(
             "role_creator", routing_logic, {"supervisor": "supervisor", END: END}
@@ -85,6 +81,9 @@ class SupervisorAgentWorkflow:
     def execute(self, state: MainWorkflowState) -> MainWorkflowState:
         """Execute the supervisor subgraph"""
         # Convert AgentState to SupervisorSubGraphState
+        logger.get_logger()._write_log(
+            "INFO", "supervisor_subgraph", f"开始执行监督者子图"
+        )
         plan_list = state.get("plan_list", [])
         if not plan_list or len(plan_list) == 0:
             return MainWorkflowState(
@@ -98,16 +97,13 @@ class SupervisorAgentWorkflow:
         plan = plan_list[state.get("current_plan_index", 0)]
         phase_id = plan.get("phase_id", "")
         logger.get_logger()._write_log(
-            "INFO", "supervisor_subgraph", f"Start to handle plan: {plan}"
+            "INFO", "supervisor_subgraph", f"开始处理阶段 {phase_id}: {plan.get('phase_name', 'unknown')}"
         )
         planner_message = HumanMessage(
             content=f"{json.dumps(plan, indent=4, ensure_ascii=False)}",
             role="planner",
             agent="planner",
             timestamp=datetime.now().isoformat(),
-        )
-        logger.get_logger()._write_log(
-            "INFO", "supervisor_subgraph", f"Planner message: {planner_message}"
         )
 
         supervisor_subgraph_state = SupervisorWorkflowState(
@@ -118,6 +114,12 @@ class SupervisorAgentWorkflow:
         )
 
         subgraph_state = self.workflow.invoke(supervisor_subgraph_state)
+        
+        logger.get_logger()._write_log(
+            "INFO",
+            "supervisor_subgraph",
+            f"阶段 {phase_id} 子图执行完成，状态: {subgraph_state.get('status', 'unknown')}",
+        )
 
         # update the state depends on the subgrah state
         # if state is error update the main workflow state to error
@@ -126,23 +128,20 @@ class SupervisorAgentWorkflow:
         subgraph_status = subgraph_state.get("status", "")
         if subgraph_status == SupervisorWorkflowStatus.ERROR:
             logger.get_logger()._write_log(
-                "ERROR", "supervisor_agent", f"Error in supervisor subgraph"
+                "ERROR", "supervisor_agent", f"监督者子图执行错误"
             )
             return MainWorkflowState(
-                origin_user_request=state.get("origin_user_request", ""),
-                plan_list=state.get("plan_list", []),
-                current_plan_index=state.get("current_plan_index", 0),
                 status=MainWorkflowStatus.ERROR,
-                messages=[],
             )
         else:
-            logger.get_logger()._write_log(
-                "INFO",
-                "supervisor_agent",
-                f"Get the next plan index: {state.get('current_plan_index', 0) + 1}",
-            )
             next_plan_index = state.get("current_plan_index", 0) + 1
             if next_plan_index >= len(state.get("plan_list", [])):
+                logger.get_logger()._write_log(
+                    "INFO",
+                    "workflow",
+                    f"所有阶段已完成，工作流状态更新为已完成",
+                )
+                # all phases completed, update the main workflow state to completed
                 return MainWorkflowState(
                     origin_user_request=state.get("origin_user_request", ""),
                     plan_list=state.get("plan_list", []),
@@ -150,16 +149,13 @@ class SupervisorAgentWorkflow:
                         "current_plan_index", len(state.get("plan_list", [])) - 1
                     ),
                     status=MainWorkflowStatus.COMPLETED,
-                    messages=[
-                        AIMessage(
-                            content="The workflow is completed",
-                            role="supervisor",
-                            agent="supervisor",
-                            timestamp=datetime.now().isoformat(),
-                        )
-                    ],
                 )
             else:
+                logger.get_logger()._write_log(
+                    "INFO",
+                    "workflow",
+                    f"阶段 {phase_id} 处理完成，准备进入下一个阶段 (当前进度: {next_plan_index}/{len(state.get('plan_list', []))})",
+                )
                 return MainWorkflowState(
                     origin_user_request=state.get("origin_user_request", ""),
                     plan_list=state.get("plan_list", []),
@@ -198,7 +194,7 @@ class MultiAgentWorkflow:
         def supervisor_subgraph_node(state: MainWorkflowState) -> MainWorkflowState:
             """Supervision node - manages phases and coordinates execution"""
             logger.get_logger()._write_log(
-                "INFO", "supervisor_agent", f"Execute the supervisor subgraph"
+                "INFO", "workflow", f"执行监督者子图节点"
             )
             return self.supervisor_subgraph.execute(state)
 

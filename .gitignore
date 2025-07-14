@@ -25,7 +25,7 @@ execution_logs/
 *.log.*
 
 # Generated todo files
-todo.json
+todo.md
 todo.md
 
 # IDE files
