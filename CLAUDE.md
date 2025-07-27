@@ -97,20 +97,35 @@ This is a multi-agent system for game character creation using LangGraph with pl
   - Integration testing
 
 ### File Structure
-- `agents/`: 智能体模块目录
-  - `base_agent.py`: Base agent class with AWS Bedrock integration
-  - `planner_agent.py`: Task planning agent implementation
-  - `supervisor_agent.py`: Coordination and monitoring agent
-  - `role_creator_agent.py`: Character asset creation agent
-- `prompts/`: Agent-specific prompts separated by role
-- `workflow.py`: LangGraph workflow orchestration  
-- `simple_file_tools.py`: Simple file operations (no LangChain dependencies)
-- `logger.py`: Comprehensive logging system (text, JSON, markdown)
+```
+src/                          # Main source code directory
+├── agents/                   # 智能体模块目录
+│   ├── __init__.py
+│   ├── base_agent.py        # Base agent class with AWS Bedrock integration
+│   ├── planner_agent.py     # Task planning agent implementation
+│   ├── supervisor_agent.py  # Coordination and monitoring agent
+│   └── role_creator_agent.py # Character asset creation agent
+├── prompts/                 # Agent-specific prompts separated by role
+│   ├── planner_prompts.py
+│   ├── supervisor_prompts.py
+│   └── role_creator_prompts.py
+├── workflow.py              # LangGraph workflow orchestration
+├── tools.py                 # Tool definitions and integrations
+├── utils.py                 # Utility functions
+├── models.py               # Data models and state definitions
+└── logger.py               # Comprehensive logging system (text, JSON, markdown)
+
+# Root level files
+├── main.py                  # Application entry point
+├── config.py               # Configuration settings
+├── config.example.py       # Configuration template
+└── pyproject.toml          # Project configuration
+```
 
 ### Tool System
 File operations use simple Python functions to avoid LangChain complexity:
 ```python
-# Simple file operations in simple_file_tools.py
+# Simple file operations in src/tools.py
 def simple_read_file(file_path: str) -> str:
     # Direct file operations without LangChain dependencies
 

@@ -48,19 +48,16 @@ PLANNER_SYSTEM_PROMPT = """
 ]
 </output_format>
 
-"""
+<workflow_instructions>
+1. 分析用户的角色创作需求，确保理解其核心意图和技术要求。
+2. 制定3-5个高层次阶段规划，确保每个阶段都有明确的目标和依赖关系。
+3. 首次执行时，生成完整的阶段规划并只交付第一个阶段给supervisor graph。
+4. 当supervisor graph完成一个阶段后，根据状态信息交付下一个待处理的阶段。
+5. 重要：确保按照阶段依赖顺序逐个处理，不要跳过或并发处理多个阶段。
+</workflow_instructions>
 
-PLANNER_USER_PROMPT = """
-<task_request>
-角色创建请求：{origin_user_request}
-</task_request>
+<available_tools>
+- hand_off_to_supervisor_graph: 将当前阶段规划交付给supervisor subgraph进行处理
+</available_tools>
 
-<planning_requirements>
-1. 分析角色创作的核心需求和技术特点
-2. 制定3-5个高层次主要阶段，确保逻辑顺序合理
-3. 每个阶段应代表重要里程碑，后续将由监督者分解为具体子任务
-4. 明确阶段间的依赖关系和预估工作量
-</planning_requirements>
-
-请按照指定的JSON格式返回阶段规划。
 """
