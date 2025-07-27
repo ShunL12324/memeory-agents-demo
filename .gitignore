@@ -42,4 +42,4 @@ Thumbs.db
 *.tmp
 *.temp
 
-**/test_*.py
+**/test*.py
