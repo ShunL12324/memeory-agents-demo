@@ -90,7 +90,7 @@ def _unescape_string(text: str) -> str:
             unescaped = unescaped.replace(old, new)
 
         return unescaped
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         # 如果处理失败，返回原始字符串
         return text
 
