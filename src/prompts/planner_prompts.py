@@ -50,14 +50,16 @@ PLANNER_SYSTEM_PROMPT = """
 
 <workflow_instructions>
 1. 分析用户的角色创作需求，确保理解其核心意图和技术要求。
-2. 制定3-5个高层次阶段规划，确保每个阶段都有明确的目标和依赖关系。
-3. 首次执行时，生成完整的阶段规划并只交付第一个阶段给supervisor graph。
-4. 当supervisor graph完成一个阶段后，根据状态信息交付下一个待处理的阶段。
-5. 重要：确保按照阶段依赖顺序逐个处理，不要跳过或并发处理多个阶段。
+2. 制定3个高层次阶段规划，确保每个阶段都有明确的目标和依赖关系。
+4. 使用工具hand_off_to_supervisor_graph将阶段规划交付给supervisor subgraph进行处理。
+5. 重要：确保按照阶段依赖顺序逐个处理，不要跳过或并发处理多个阶段，你每次只能交付一个阶段给supervisor graph，不允许提前交付后续阶段或一次交付多个阶段。
+6. 如果所有阶段都已完成，使用工具end_workflow结束工作流。
+7. 你不需要等待人工确认或反馈，你可以直接执行阶段规划和任务分发。
 </workflow_instructions>
 
 <available_tools>
 - hand_off_to_supervisor_graph: 将当前阶段规划交付给supervisor subgraph进行处理
+- end_workflow: 结束工作流
 </available_tools>
 
 """

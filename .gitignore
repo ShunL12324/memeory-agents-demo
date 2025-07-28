@@ -26,7 +26,10 @@ execution_logs/
 
 # Generated todo files
 todo.md
-todo.md
+
+# Generated workflow graphs
+graphs/
+*.png
 
 # IDE files
 .idea/

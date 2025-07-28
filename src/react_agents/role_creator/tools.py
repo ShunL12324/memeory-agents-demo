@@ -15,12 +15,13 @@ def hand_off_to_supervisor(
 ) -> Command[Literal["supervisor", "planner"]]:
     """Hand off workflow to the supervisor agent."""
     history = state.get("messages", [])
-    logger.get_logger().log_tool_call(
+    logger.get_logger().tool_call(
         "role_creator",
         "hand_off_to_supervisor",
         {"state_keys": list(state.keys())},
         "Successfully handed off to supervisor agent",
         True,
+        print_to_console=False  # 避免干扰流式输出
     )
     tool_message = ToolMessage(
         content="Successfully handed off to supervisor agent.",

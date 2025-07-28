@@ -7,6 +7,7 @@ from pathlib import Path
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
+from langgraph.graph import END
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
 from pydantic import BaseModel, Field
@@ -175,12 +176,13 @@ def hand_off_to_role_creator(
 ) -> Command[Literal["role_creator"]]:
     """Hand off workflow to role creator agent."""
     history = state.get("messages", [])
-    logger.get_logger().log_tool_call(
+    logger.get_logger().tool_call(
         "supervisor",
         "hand_off_to_role_creator",
         {"state_keys": list(state.keys())},
         "Successfully handed off to role creator agent",
         True,
+        print_to_console=False,  # 避免干扰流式输出
     )
     tool_message = ToolMessage(
         content="Successfully handed off to role creator agent",
@@ -197,6 +199,39 @@ def hand_off_to_role_creator(
     )
 
 
+@tool(
+    "end_workflow",
+    description="Navigate to end of workflow",
+)
+def end_workflow(
+    state: Annotated[SupervisorSubGraphState, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> Command:
+    """Navigate to end of workflow."""
+    history = state.get("messages", [])
+    logger.get_logger().tool_call(
+        "supervisor",
+        "end_workflow",
+        {"state_keys": list(state.keys())},
+        "Workflow ended successfully",
+        True,
+        print_to_console=False,  # Avoid interfering with streaming output
+    )
+    tool_message = ToolMessage(
+        content="Workflow ended successfully",
+        tool_call_id=tool_call_id,
+        tool_name="end_workflow",
+    )
+    return Command(
+        goto=END,
+        update={
+            **state,
+            "messages": list(history) + [tool_message],
+        },
+        graph=Command.PARENT,
+    )
+
+
 # Export tools for the supervisor agent
 SUPERVISOR_TOOLS = [
     read_file,
@@ -204,4 +239,5 @@ SUPERVISOR_TOOLS = [
     edit_file,
     list_files,
     hand_off_to_role_creator,
+    end_workflow,
 ]
